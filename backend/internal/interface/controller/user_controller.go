@@ -29,7 +29,24 @@ type RegisterUserResponse struct {
 	Message  string `json:"message"`
 }
 
-func (uc *UserController) RegisterUserHandler(w http.ResponseWriter, r *http.Request) {
+type LoginRequest struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
+type LoginResponse struct {
+	Token   string `json:"token"`
+	User    User   `json:"user"`
+	Message string `json:"message"`
+}
+
+type User struct {
+	ID       int    `json:"id"`
+	Username string `json:"username"`
+	Email    string `json:"email"`
+}
+
+func (uc *UserController) Register(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -41,10 +58,7 @@ func (uc *UserController) RegisterUserHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	// TODO: Hash password properly with bcrypt
-	passwordHash := req.Password // This should be hashed in real implementation
-
-	user, err := uc.UserInteractor.CreateUser(req.Username, req.Email, passwordHash)
+	user, err := uc.UserInteractor.Register(req.Username, req.Email, req.Password)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -58,8 +72,66 @@ func (uc *UserController) RegisterUserHandler(w http.ResponseWriter, r *http.Req
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+	json.NewEncoder(w).Encode(response)
+}
+
+func (uc *UserController) Login(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
+
+	var req LoginRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	// TODO: Implement actual login logic with password verification and JWT token generation
+	// For now, return a dummy response
+	response := LoginResponse{
+		Token: "dummy-jwt-token",
+		User: User{
+			ID:       1,
+			Username: req.Username,
+			Email:    "user@example.com",
+		},
+		Message: "Login successful",
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+func (uc *UserController) Logout(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// TODO: Implement actual logout logic (invalidate token, etc.)
+	response := map[string]string{
+		"message": "Logout successful",
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+func (uc *UserController) Me(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// TODO: Implement actual user info retrieval based on JWT token
+	// For now, return dummy user data
+	user := User{
+		ID:       1,
+		Username: "testuser",
+		Email:    "test@example.com",
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(user)
 }

@@ -25,11 +25,7 @@ func main() {
 	if err != nil {
 		log.Fatal("Failed to connect to database:", err)
 	}
-	defer func() {
-		if err := db.Close(); err != nil {
-			log.Printf("Failed to close database: %v", err)
-		}
-	}()
+	defer db.Close()
 
 	// Test database connection
 	if err := db.Ping(); err != nil {
@@ -71,13 +67,14 @@ func main() {
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		if _, err := fmt.Fprint(w, `{"status":"ok","message":"Server is healthy"}`); err != nil {
-			log.Printf("Error writing health check response: %v", err)
-		}
+		fmt.Fprint(w, `{"status":"ok","message":"Server is healthy"}`)
 	})
 
 	// User endpoints
-	mux.HandleFunc("/api/users/register", userController.RegisterUserHandler)
+	mux.HandleFunc("/api/v1/register", userController.Register)
+	mux.HandleFunc("/api/v1/login", userController.Login)
+	mux.HandleFunc("/api/v1/logout", userController.Logout)
+	mux.HandleFunc("/api/v1/me", userController.Me)
 
 	// Apply CORS middleware
 	handler := corsHandler(mux)
