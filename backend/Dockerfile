@@ -1,11 +1,11 @@
-# Builder stage
-FROM golang:1.23-alpine AS builder
+FROM golang:1.23-alpine
 
 WORKDIR /app
 
-# Install migrate tool
+# Install tools
 RUN apk add --no-cache git
 RUN go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
+RUN go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest
 
 # Copy dependency files
 COPY go.mod go.sum ./
@@ -16,28 +16,11 @@ RUN go mod download
 # Copy all source code
 COPY . .
 
-# Build the application
-RUN CGO_ENABLED=0 GOOS=linux go build -o /main ./cmd/api
-
-# Final stage
-FROM alpine:latest AS final
-
-# Install necessary packages
-RUN apk add --no-cache ca-certificates
-
-# Create app directory
-RUN mkdir /app
-
-# Copy binary and migrate tool from builder stage
-COPY --from=builder /main /app/main
-COPY --from=builder /go/bin/migrate /usr/local/bin/migrate
-
-# Copy migrations directory
-COPY --from=builder /app/migrations /app/migrations
-# migrate -database "postgres://user:password@db:5432/todo_db?sslmode=disable" -path /app/migrations up
+# migrate -database "postgresql://user:password@db:5432/todo_db?sslmode=disable" -path /app/migrations up
+# sqlc generate
 
 # Expose port
 EXPOSE 8080
 
-# Run the application
-CMD ["./app/main"]
+# Run with go run for code sync
+CMD ["go", "run", "./cmd/api"]
