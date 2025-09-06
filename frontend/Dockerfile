@@ -31,12 +31,10 @@ WORKDIR /app
 # Copy built application from builder stage
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next ./.next
+COPY --from=builder /app/node_modules ./node_modules
 
 # Copy dependency files
 COPY package.json pnpm-lock.yaml ./
-
-# Install production dependencies only
-RUN pnpm install --prod
 
 # Expose port
 EXPOSE 3000
