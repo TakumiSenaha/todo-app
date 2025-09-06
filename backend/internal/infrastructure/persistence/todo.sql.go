@@ -126,6 +126,86 @@ func (q *Queries) ListTodos(ctx context.Context, userID int32) ([]Todo, error) {
 	return items, nil
 }
 
+const listTodosWithSort = `-- name: ListTodosWithSort :many
+SELECT id, user_id, title, due_date, priority, is_completed, created_at, updated_at FROM todos
+WHERE user_id = $1
+ORDER BY
+    CASE WHEN $2 = 'due_date_asc' THEN due_date END ASC,
+    CASE WHEN $2 = 'due_date_desc' THEN due_date END DESC,
+    CASE WHEN $2 = 'priority_desc' THEN priority END DESC,
+    CASE WHEN $2 = 'created_desc' THEN created_at END DESC,
+    is_completed ASC,
+    created_at DESC
+`
+
+type ListTodosWithSortParams struct {
+	UserID  int32       `json:"user_id"`
+	Column2 interface{} `json:"column_2"`
+}
+
+// ソート機能付きリスト取得
+func (q *Queries) ListTodosWithSort(ctx context.Context, arg ListTodosWithSortParams) ([]Todo, error) {
+	rows, err := q.db.QueryContext(ctx, listTodosWithSort, arg.UserID, arg.Column2)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Todo
+	for rows.Next() {
+		var i Todo
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.Title,
+			&i.DueDate,
+			&i.Priority,
+			&i.IsCompleted,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const toggleTodoComplete = `-- name: ToggleTodoComplete :one
+UPDATE todos
+SET is_completed = NOT is_completed,
+    updated_at = CURRENT_TIMESTAMP
+WHERE id = $1 AND user_id = $2
+RETURNING id, user_id, title, due_date, priority, is_completed, created_at, updated_at
+`
+
+type ToggleTodoCompleteParams struct {
+	ID     int32 `json:"id"`
+	UserID int32 `json:"user_id"`
+}
+
+// 完了切り替え専用クエリ
+func (q *Queries) ToggleTodoComplete(ctx context.Context, arg ToggleTodoCompleteParams) (Todo, error) {
+	row := q.db.QueryRowContext(ctx, toggleTodoComplete, arg.ID, arg.UserID)
+	var i Todo
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Title,
+		&i.DueDate,
+		&i.Priority,
+		&i.IsCompleted,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const updateTodo = `-- name: UpdateTodo :one
 UPDATE todos
 SET title = $2,

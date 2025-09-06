@@ -17,6 +17,10 @@ type Querier interface {
 	GetUserByID(ctx context.Context, id int32) (User, error)
 	GetUserByUsername(ctx context.Context, username string) (User, error)
 	ListTodos(ctx context.Context, userID int32) ([]Todo, error)
+	// ソート機能付きリスト取得
+	ListTodosWithSort(ctx context.Context, arg ListTodosWithSortParams) ([]Todo, error)
+	// 完了切り替え専用クエリ
+	ToggleTodoComplete(ctx context.Context, arg ToggleTodoCompleteParams) (Todo, error)
 	UpdateTodo(ctx context.Context, arg UpdateTodoParams) (Todo, error)
 }
 

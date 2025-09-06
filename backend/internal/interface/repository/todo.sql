@@ -30,3 +30,23 @@ RETURNING *;
 -- name: DeleteTodo :exec
 DELETE FROM todos
 WHERE id = $1 AND user_id = $2;
+
+-- 完了切り替え専用クエリ
+-- name: ToggleTodoComplete :one
+UPDATE todos
+SET is_completed = NOT is_completed,
+    updated_at = CURRENT_TIMESTAMP
+WHERE id = $1 AND user_id = $2
+RETURNING *;
+
+-- ソート機能付きリスト取得
+-- name: ListTodosWithSort :many
+SELECT * FROM todos
+WHERE user_id = $1
+ORDER BY
+    CASE WHEN $2 = 'due_date_asc' THEN due_date END ASC,
+    CASE WHEN $2 = 'due_date_desc' THEN due_date END DESC,
+    CASE WHEN $2 = 'priority_desc' THEN priority END DESC,
+    CASE WHEN $2 = 'created_desc' THEN created_at END DESC,
+    is_completed ASC,
+    created_at DESC;
