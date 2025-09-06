@@ -25,7 +25,11 @@ func main() {
 	if err != nil {
 		log.Fatal("Failed to connect to database:", err)
 	}
-	defer db.Close()
+	defer func() {
+		if err := db.Close(); err != nil {
+			log.Printf("Failed to close database: %v", err)
+		}
+	}()
 
 	// Test database connection
 	if err := db.Ping(); err != nil {
@@ -67,7 +71,9 @@ func main() {
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprint(w, `{"status":"ok","message":"Server is healthy"}`)
+		if _, err := fmt.Fprint(w, `{"status":"ok","message":"Server is healthy"}`); err != nil {
+			log.Printf("Error writing health check response: %v", err)
+		}
 	})
 
 	// User endpoints
