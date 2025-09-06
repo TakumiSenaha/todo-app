@@ -7,6 +7,14 @@ import (
 	"todo-app/internal/usecase"
 )
 
+// Context key types to avoid collisions
+type contextKey string
+
+const (
+	UserIDKey   contextKey = "userID"
+	UsernameKey contextKey = "username"
+)
+
 type AuthMiddleware struct {
 	UserInteractor *usecase.UserInteractor
 }
@@ -43,8 +51,8 @@ func (am *AuthMiddleware) RequireAuth(next http.Handler) http.Handler {
 		userID := int(userIDFloat)
 
 		// Add user ID to request context
-		ctx := context.WithValue(r.Context(), "userID", userID)
-		ctx = context.WithValue(ctx, "username", (*claims)["username"])
+		ctx := context.WithValue(r.Context(), UserIDKey, userID)
+		ctx = context.WithValue(ctx, UsernameKey, (*claims)["username"])
 
 		// Call next handler with updated context
 		next.ServeHTTP(w, r.WithContext(ctx))
@@ -80,8 +88,8 @@ func (am *AuthMiddleware) OptionalAuth(next http.Handler) http.Handler {
 		userID := int(userIDFloat)
 
 		// Add user ID to request context
-		ctx := context.WithValue(r.Context(), "userID", userID)
-		ctx = context.WithValue(ctx, "username", (*claims)["username"])
+		ctx := context.WithValue(r.Context(), UserIDKey, userID)
+		ctx = context.WithValue(ctx, UsernameKey, (*claims)["username"])
 
 		// Call next handler with updated context
 		next.ServeHTTP(w, r.WithContext(ctx))
