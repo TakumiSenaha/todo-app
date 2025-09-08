@@ -27,6 +27,7 @@ services:
       - ./backend:/app
     environment:
       DB_SOURCE: postgresql://user:password@db:5432/todo_db?sslmode=disable
+      JWT_SECRET: your-super-secure-jwt-secret-key-here-change-this-in-production
     # depends_onを更新し、dbサービスがhealthyになるまで待つように変更
     depends_on:
       db:

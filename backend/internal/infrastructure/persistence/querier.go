@@ -22,6 +22,7 @@ type Querier interface {
 	// 完了切り替え専用クエリ
 	ToggleTodoComplete(ctx context.Context, arg ToggleTodoCompleteParams) (Todo, error)
 	UpdateTodo(ctx context.Context, arg UpdateTodoParams) (Todo, error)
+	UpdateUser(ctx context.Context, arg UpdateUserParams) (User, error)
 }
 
 var _ Querier = (*Queries)(nil)

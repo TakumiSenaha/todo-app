@@ -1,12 +1,14 @@
 package usecase
 
 import (
+	"context"
 	"todo-app/internal/domain"
 )
 
 type UserRepository interface {
-	CreateUser(user *domain.User) error
-	GetUserByUsername(username string) (*domain.User, error)
-	GetUserByEmail(email string) (*domain.User, error)
-	GetUserByID(id int) (*domain.User, error)
+	CreateUser(ctx context.Context, user *domain.User) error
+	GetUserByUsername(ctx context.Context, username string) (*domain.User, error)
+	GetUserByEmail(ctx context.Context, email string) (*domain.User, error)
+	GetUserByID(ctx context.Context, id int) (*domain.User, error)
+	UpdateUser(ctx context.Context, user *domain.User) error
 }

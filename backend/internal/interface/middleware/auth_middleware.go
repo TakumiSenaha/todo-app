@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"context"
+	"log"
 	"net/http"
 	"strconv"
 	"todo-app/internal/usecase"
@@ -27,15 +28,28 @@ func NewAuthMiddleware(userInteractor *usecase.UserInteractor) *AuthMiddleware {
 
 func (am *AuthMiddleware) RequireAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Get token from cookie
-		cookie, err := r.Cookie("auth_token")
-		if err != nil {
-			http.Error(w, `{"error":"Authentication required"}`, http.StatusUnauthorized)
-			return
+		var token string
+
+		// Try to get token from Authorization header first
+		authHeader := r.Header.Get("Authorization")
+		log.Printf("Auth header: %s", authHeader)
+		if authHeader != "" && len(authHeader) > 7 && authHeader[:7] == "Bearer " {
+			token = authHeader[7:]
+			log.Printf("Token from header: %s", token[:10]+"...")
+		} else {
+			// Fallback to cookie
+			cookie, err := r.Cookie("auth_token")
+			if err != nil {
+				log.Printf("No auth token found in header or cookie")
+				http.Error(w, `{"error":"Authentication required"}`, http.StatusUnauthorized)
+				return
+			}
+			token = cookie.Value
+			log.Printf("Token from cookie: %s", token[:10]+"...")
 		}
 
 		// Validate JWT token
-		claims, err := am.UserInteractor.ValidateJWTToken(cookie.Value)
+		claims, err := am.UserInteractor.ValidateJWTToken(token)
 		if err != nil {
 			http.Error(w, `{"error":"Invalid token"}`, http.StatusUnauthorized)
 			return
@@ -61,16 +75,25 @@ func (am *AuthMiddleware) RequireAuth(next http.Handler) http.Handler {
 
 func (am *AuthMiddleware) OptionalAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Get token from cookie (optional)
-		cookie, err := r.Cookie("auth_token")
-		if err != nil {
-			// No token, continue without auth
-			next.ServeHTTP(w, r)
-			return
+		var token string
+
+		// Try to get token from Authorization header first
+		authHeader := r.Header.Get("Authorization")
+		if authHeader != "" && len(authHeader) > 7 && authHeader[:7] == "Bearer " {
+			token = authHeader[7:]
+		} else {
+			// Fallback to cookie
+			cookie, err := r.Cookie("auth_token")
+			if err != nil {
+				// No token, continue without auth
+				next.ServeHTTP(w, r)
+				return
+			}
+			token = cookie.Value
 		}
 
 		// Validate JWT token
-		claims, err := am.UserInteractor.ValidateJWTToken(cookie.Value)
+		claims, err := am.UserInteractor.ValidateJWTToken(token)
 		if err != nil {
 			// Invalid token, continue without auth
 			next.ServeHTTP(w, r)

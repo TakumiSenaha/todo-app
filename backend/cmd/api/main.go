@@ -8,6 +8,7 @@ import (
 	"os"
 	"todo-app/internal/infrastructure/persistence"
 	"todo-app/internal/interface/controller"
+	"todo-app/internal/interface/middleware"
 	"todo-app/internal/usecase"
 
 	_ "github.com/lib/pq"
@@ -41,12 +42,15 @@ func main() {
 	// Dependency Injection
 	// Infrastructure layer
 	userRepo := persistence.NewUserPersistence(db)
+	tokenBlacklistRepo := persistence.NewTokenBlacklist(db)
+	refreshTokenRepo := persistence.NewRefreshToken(db)
 
 	// Use case layer
-	userInteractor := usecase.NewUserInteractor(userRepo)
+	userInteractor := usecase.NewUserInteractor(userRepo, tokenBlacklistRepo, refreshTokenRepo)
 
 	// Interface layer
 	userController := controller.NewUserController(userInteractor)
+	authMiddleware := middleware.NewAuthMiddleware(userInteractor)
 
 	// Setup routes
 	mux := http.NewServeMux()
@@ -76,11 +80,14 @@ func main() {
 		}
 	})
 
-	// User endpoints
+	// Public endpoints (no authentication required)
 	mux.HandleFunc("/api/v1/register", userController.Register)
 	mux.HandleFunc("/api/v1/login", userController.Login)
 	mux.HandleFunc("/api/v1/logout", userController.Logout)
-	mux.HandleFunc("/api/v1/me", userController.Me)
+
+	// Protected endpoints (authentication required)
+	mux.Handle("/api/v1/me", authMiddleware.RequireAuth(http.HandlerFunc(userController.Me)))
+	mux.Handle("/api/v1/profile", authMiddleware.RequireAuth(http.HandlerFunc(userController.UpdateProfile)))
 
 	// Apply CORS middleware
 	handler := corsHandler(mux)

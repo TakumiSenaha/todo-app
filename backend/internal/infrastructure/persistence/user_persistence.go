@@ -17,8 +17,7 @@ func NewUserPersistence(db *sql.DB) usecase.UserRepository {
 	}
 }
 
-func (up *UserPersistence) CreateUser(user *domain.User) error {
-	ctx := context.Background()
+func (up *UserPersistence) CreateUser(ctx context.Context, user *domain.User) error {
 
 	params := CreateUserParams{
 		Username:     user.Username,
@@ -38,8 +37,7 @@ func (up *UserPersistence) CreateUser(user *domain.User) error {
 	return nil
 }
 
-func (up *UserPersistence) GetUserByUsername(username string) (*domain.User, error) {
-	ctx := context.Background()
+func (up *UserPersistence) GetUserByUsername(ctx context.Context, username string) (*domain.User, error) {
 
 	sqlcUser, err := up.queries.GetUserByUsername(ctx, username)
 	if err != nil {
@@ -61,8 +59,7 @@ func (up *UserPersistence) GetUserByUsername(username string) (*domain.User, err
 	return user, nil
 }
 
-func (up *UserPersistence) GetUserByEmail(email string) (*domain.User, error) {
-	ctx := context.Background()
+func (up *UserPersistence) GetUserByEmail(ctx context.Context, email string) (*domain.User, error) {
 
 	sqlcUser, err := up.queries.GetUserByEmail(ctx, email)
 	if err != nil {
@@ -84,8 +81,7 @@ func (up *UserPersistence) GetUserByEmail(email string) (*domain.User, error) {
 	return user, nil
 }
 
-func (up *UserPersistence) GetUserByID(id int) (*domain.User, error) {
-	ctx := context.Background()
+func (up *UserPersistence) GetUserByID(ctx context.Context, id int) (*domain.User, error) {
 
 	sqlcUser, err := up.queries.GetUserByID(ctx, int32(id))
 	if err != nil {
@@ -105,4 +101,23 @@ func (up *UserPersistence) GetUserByID(id int) (*domain.User, error) {
 	}
 
 	return user, nil
+}
+
+func (up *UserPersistence) UpdateUser(ctx context.Context, user *domain.User) error {
+
+	params := UpdateUserParams{
+		ID:           int32(user.ID),
+		Username:     user.Username,
+		Email:        user.Email,
+		PasswordHash: user.PasswordHash,
+	}
+
+	sqlcUser, err := up.queries.UpdateUser(ctx, params)
+	if err != nil {
+		return err
+	}
+
+	user.UpdatedAt = sqlcUser.UpdatedAt.Time
+
+	return nil
 }

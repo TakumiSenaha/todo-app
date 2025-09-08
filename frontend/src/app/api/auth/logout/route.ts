@@ -1,9 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 
 const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:8080";
 
-export async function POST(_request: NextRequest) {
+export async function POST() {
   try {
     // Get auth token from cookies
     const cookieStore = await cookies();

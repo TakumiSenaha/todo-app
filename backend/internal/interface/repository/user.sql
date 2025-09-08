@@ -18,3 +18,12 @@ WHERE email = $1 LIMIT 1;
 -- name: GetUserByID :one
 SELECT * FROM users
 WHERE id = $1 LIMIT 1;
+
+-- name: UpdateUser :one
+UPDATE users
+SET username = $2,
+    email = $3,
+    password_hash = $4,
+    updated_at = CURRENT_TIMESTAMP
+WHERE id = $1
+RETURNING *;
