@@ -3,8 +3,6 @@ package controller
 import (
 	"encoding/json"
 	"net/http"
-	"os"
-	"strconv"
 	"todo-app/internal/interface/middleware"
 	"todo-app/internal/usecase"
 )
@@ -19,44 +17,18 @@ func NewUserController(userInteractor *usecase.UserInteractor) *UserController {
 	}
 }
 
-// セキュアなCookie設定を作成
-func (uc *UserController) createSecureCookie(name, value string, maxAge int) *http.Cookie {
-	// 環境変数から設定を取得（デフォルトは開発環境向け）
-	secure := os.Getenv("COOKIE_SECURE") == "true"
-	httpOnly := os.Getenv("COOKIE_HTTP_ONLY") != "false" // デフォルトtrue
-	sameSite := http.SameSiteLaxMode
-	
-	if siteMode := os.Getenv("COOKIE_SAME_SITE"); siteMode != "" {
-		switch siteMode {
-		case "strict":
-			sameSite = http.SameSiteStrictMode
-		case "none":
-			sameSite = http.SameSiteNoneMode
-		default:
-			sameSite = http.SameSiteLaxMode
-		}
-	}
-
+// 通常のCookie設定を作成
+func (uc *UserController) createCookie(name, value string, maxAge int) *http.Cookie {
 	// Cookie有効期限の設定（デフォルト24時間）
 	if maxAge == 0 {
-		if cookieMaxAge := os.Getenv("COOKIE_MAX_AGE"); cookieMaxAge != "" {
-			if age, err := strconv.Atoi(cookieMaxAge); err == nil {
-				maxAge = age
-			}
-		}
-		if maxAge == 0 {
-			maxAge = 24 * 60 * 60 // 24時間
-		}
+		maxAge = 24 * 60 * 60 // 24時間
 	}
 
 	return &http.Cookie{
-		Name:     name,
-		Value:    value,
-		Path:     "/",
-		HttpOnly: httpOnly,
-		Secure:   secure,
-		SameSite: sameSite,
-		MaxAge:   maxAge,
+		Name:   name,
+		Value:  value,
+		Path:   "/",
+		MaxAge: maxAge,
 	}
 }
 
@@ -83,7 +55,6 @@ type LoginResponse struct {
 	User    User   `json:"user"`    // ユーザー情報
 	Message string `json:"message"` // レスポンスメッセージ
 }
-
 
 type User struct {
 	ID       int    `json:"id"`
@@ -153,7 +124,7 @@ func (uc *UserController) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Authenticate user
-	tokens, err := uc.UserInteractor.Login(r.Context(), req.Username, req.Password)
+	token, err := uc.UserInteractor.Login(r.Context(), req.Username, req.Password)
 	if err != nil {
 		http.Error(w, "Invalid credentials", http.StatusUnauthorized)
 		return
@@ -166,12 +137,11 @@ func (uc *UserController) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// セキュアなCookieを設定（セッション管理用）
-	authCookie := uc.createSecureCookie("auth_token", tokens.AccessToken, 0)
+	// Set Cookie
+	authCookie := uc.createCookie("auth_token", token, 24*60*60) // 24時間
 	http.SetCookie(w, authCookie)
 
 	response := LoginResponse{
-		Token: tokens.AccessToken, // JWTアクセストークン
 		User: User{
 			ID:       user.ID,
 			Username: user.Username,
@@ -215,8 +185,8 @@ func (uc *UserController) Logout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// セキュアなCookie削除
-	deleteCookie := uc.createSecureCookie("auth_token", "", -1)
+	// Cookie削除
+	deleteCookie := uc.createCookie("auth_token", "", -1)
 	http.SetCookie(w, deleteCookie)
 
 	response := map[string]string{
@@ -229,7 +199,6 @@ func (uc *UserController) Logout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 }
-
 
 func (uc *UserController) Me(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {

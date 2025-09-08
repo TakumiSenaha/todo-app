@@ -42,11 +42,9 @@ func main() {
 	// Dependency Injection
 	// Infrastructure layer
 	userRepo := persistence.NewUserPersistence(db)
-	tokenBlacklistRepo := persistence.NewTokenBlacklist(db)
-	refreshTokenRepo := persistence.NewRefreshToken(db)
 
 	// Use case layer
-	userInteractor := usecase.NewUserInteractor(userRepo, tokenBlacklistRepo, refreshTokenRepo)
+	userInteractor := usecase.NewUserInteractor(userRepo)
 
 	// Interface layer
 	userController := controller.NewUserController(userInteractor)

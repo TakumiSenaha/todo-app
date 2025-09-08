@@ -30,22 +30,20 @@ func (am *AuthMiddleware) RequireAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var token string
 
-		// Try to get token from Authorization header first
-		authHeader := r.Header.Get("Authorization")
-		log.Printf("Auth header: %s", authHeader)
-		if authHeader != "" && len(authHeader) > 7 && authHeader[:7] == "Bearer " {
-			token = authHeader[7:]
-			log.Printf("Token from header: %s", token[:10]+"...")
-		} else {
-			// Fallback to cookie
-			cookie, err := r.Cookie("auth_token")
-			if err != nil {
-				log.Printf("No auth token found in header or cookie")
+		// Try to get token from cookie first
+		cookie, err := r.Cookie("auth_token")
+		if err != nil {
+			// Fallback to Authorization header
+			authHeader := r.Header.Get("Authorization")
+			if authHeader != "" && len(authHeader) > 7 && authHeader[:7] == "Bearer " {
+				token = authHeader[7:]
+			} else {
+				log.Printf("No auth token found in cookie or header")
 				http.Error(w, `{"error":"Authentication required"}`, http.StatusUnauthorized)
 				return
 			}
+		} else {
 			token = cookie.Value
-			log.Printf("Token from cookie: %s", token[:10]+"...")
 		}
 
 		// Validate JWT token
@@ -77,18 +75,19 @@ func (am *AuthMiddleware) OptionalAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var token string
 
-		// Try to get token from Authorization header first
-		authHeader := r.Header.Get("Authorization")
-		if authHeader != "" && len(authHeader) > 7 && authHeader[:7] == "Bearer " {
-			token = authHeader[7:]
-		} else {
-			// Fallback to cookie
-			cookie, err := r.Cookie("auth_token")
-			if err != nil {
+		// Try to get token from cookie first
+		cookie, err := r.Cookie("auth_token")
+		if err != nil {
+			// Fallback to Authorization header
+			authHeader := r.Header.Get("Authorization")
+			if authHeader != "" && len(authHeader) > 7 && authHeader[:7] == "Bearer " {
+				token = authHeader[7:]
+			} else {
 				// No token, continue without auth
 				next.ServeHTTP(w, r)
 				return
 			}
+		} else {
 			token = cookie.Value
 		}
 

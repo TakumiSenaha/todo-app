@@ -27,7 +27,6 @@ export interface LoginRequest {
 }
 
 export interface LoginResponse {
-  token: string;
   user: User;
   message: string;
 }
@@ -56,7 +55,7 @@ export class ApiError extends Error {
   ) {
     super(message);
     this.name = "ApiError";
-    
+
     // 認証エラーの判定
     this.isAuthError = status === 401 || status === 403;
   }
@@ -72,31 +71,32 @@ export class ApiError extends Error {
 
   static isTemporaryError(error: unknown): boolean {
     if (error instanceof ApiError) {
-      return error.isNetworkError || 
-             error.status >= 500 || 
-             error.status === 408; // Request Timeout
+      return (
+        error.isNetworkError || error.status >= 500 || error.status === 408
+      ); // Request Timeout
     }
     return false;
   }
 }
 
-// Simple token management utilities
-export const tokenManager = {
-  getToken(): string | null {
-    return localStorage.getItem("token");
+// Cookie management utilities
+export const cookieManager = {
+  getCookie(name: string): string | null {
+    if (typeof document === "undefined") return null;
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) return parts.pop()?.split(";").shift() || null;
+    return null;
   },
 
-  setToken(token: string): void {
-    localStorage.setItem("token", token);
+  clearCookie(name: string): void {
+    if (typeof document === "undefined") return;
+    document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;`;
   },
 
-  clearToken(): void {
-    localStorage.removeItem("token");
+  hasAuthToken(): boolean {
+    return !!this.getCookie("auth_token");
   },
-
-  hasToken(): boolean {
-    return !!this.getToken();
-  }
 };
 
 // Enhanced API request function with retry logic
@@ -113,32 +113,18 @@ async function apiRequest<T>(
     "Content-Type": "application/json",
   };
 
-  // Add authorization header if needed
-  if (includeAuth) {
-    const token = tokenManager.getToken();
-    if (!token) {
-      throw new ApiError(
-        "No authentication token available",
-        401,
-        "NO_TOKEN",
-        false,
-        true,
-      );
-    }
-    defaultHeaders["Authorization"] = `Bearer ${token}`;
-  }
-
   const config: RequestInit = {
     ...options,
     headers: {
       ...defaultHeaders,
       ...options.headers,
     },
+    credentials: "include", // Cookie自動送信
   };
 
   try {
     const response = await fetch(url, config);
-    
+
     // レスポンスのパース（JSON以外のレスポンスも考慮）
     let data;
     try {
@@ -156,9 +142,9 @@ async function apiRequest<T>(
         isNetworkError,
       );
 
-      // 401エラーの場合、トークンが無効なので削除
+      // 401エラーの場合、Cookieが無効なので削除
       if (response.status === 401 && includeAuth) {
-        tokenManager.clearToken();
+        cookieManager.clearCookie("auth_token");
       }
 
       throw error;
@@ -169,8 +155,16 @@ async function apiRequest<T>(
     if (error instanceof ApiError) {
       // リトライ可能なエラーの場合、リトライを実行
       if (retryCount < maxRetries && ApiError.isTemporaryError(error)) {
-        await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1))); // 指数バックオフ
-        return apiRequest<T>(endpoint, options, includeAuth, retryCount + 1, maxRetries);
+        await new Promise((resolve) =>
+          setTimeout(resolve, 1000 * (retryCount + 1)),
+        ); // 指数バックオフ
+        return apiRequest<T>(
+          endpoint,
+          options,
+          includeAuth,
+          retryCount + 1,
+          maxRetries,
+        );
       }
       throw error;
     }
@@ -185,8 +179,16 @@ async function apiRequest<T>(
 
     // ネットワークエラーもリトライ可能
     if (retryCount < maxRetries) {
-      await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1)));
-      return apiRequest<T>(endpoint, options, includeAuth, retryCount + 1, maxRetries);
+      await new Promise((resolve) =>
+        setTimeout(resolve, 1000 * (retryCount + 1)),
+      );
+      return apiRequest<T>(
+        endpoint,
+        options,
+        includeAuth,
+        retryCount + 1,
+        maxRetries,
+      );
     }
 
     throw networkError;
@@ -242,7 +244,6 @@ export const authApi = {
       true,
     );
   },
-
 };
 
 // Export auth API

@@ -6,7 +6,7 @@ import {
   RegisterRequest,
   User,
   ApiError,
-  tokenManager,
+  cookieManager,
 } from "@/services/api";
 
 export interface UseAuthReturn {
@@ -29,7 +29,7 @@ export function useAuth(): UseAuthReturn {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        if (!tokenManager.hasToken()) {
+        if (!cookieManager.hasAuthToken()) {
           setUser(null);
           setIsLoading(false);
           return;
@@ -39,13 +39,12 @@ export function useAuth(): UseAuthReturn {
         setUser(user);
       } catch (error) {
         setUser(null);
-        
-        // 認証エラーの場合はトークンを削除
+
+        // 認証エラーの場合はCookieを削除
         if (ApiError.isAuthError(error)) {
-          tokenManager.clearToken();
+          cookieManager.clearCookie("auth_token");
         } else if (!ApiError.isTemporaryError(error)) {
-          // 永続的なエラーの場合も安全のためトークンを削除
-          tokenManager.clearToken();
+          cookieManager.clearCookie("auth_token");
         }
       } finally {
         setIsLoading(false);
@@ -63,11 +62,7 @@ export function useAuth(): UseAuthReturn {
       const response = await authApi.login(credentials);
       setUser(response.user);
 
-      // Store token using tokenManager
-      if (response.token) {
-        tokenManager.setToken(response.token);
-      }
-
+      // Cookie is automatically set by the backend
       router.push("/dashboard");
     } catch (err) {
       if (err instanceof ApiError) {
@@ -108,8 +103,8 @@ export function useAuth(): UseAuthReturn {
       await authApi.logout();
       setUser(null);
 
-      // Clear token
-      tokenManager.clearToken();
+      // Clear cookie
+      cookieManager.clearCookie("auth_token");
 
       router.push("/login");
     } catch (err) {

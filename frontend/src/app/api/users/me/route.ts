@@ -1,9 +1,17 @@
-import { NextResponse } from "next/server";
-import { authenticatedFetch } from "@/lib/auth";
+import { NextRequest, NextResponse } from "next/server";
 
-export async function GET() {
+const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:8080";
+
+export async function GET(request: NextRequest) {
   try {
-    const response = await authenticatedFetch("/api/v1/me");
+    const response = await fetch(`${BACKEND_URL}/api/v1/me`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Cookie: request.headers.get("cookie") || "",
+      },
+    });
+
     const data = await response.json();
 
     return NextResponse.json(data, { status: response.status });

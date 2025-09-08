@@ -1,20 +1,15 @@
-import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
+import { NextRequest, NextResponse } from "next/server";
 
 const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:8080";
 
-export async function POST() {
+export async function POST(request: NextRequest) {
   try {
-    // Get auth token from cookies
-    const cookieStore = await cookies();
-    const authToken = cookieStore.get("auth_token");
-
-    // Forward request to Go backend with cookie
+    // Forward request to Go backend
     const response = await fetch(`${BACKEND_URL}/api/v1/logout`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Cookie: authToken ? `auth_token=${authToken.value}` : "",
+        Cookie: request.headers.get("cookie") || "",
       },
     });
 

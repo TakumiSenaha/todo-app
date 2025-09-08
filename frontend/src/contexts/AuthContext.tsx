@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { authApi, ApiError, tokenManager } from "@/services/api";
+import { authApi, ApiError, cookieManager } from "@/services/api";
 
 interface User {
   id: number;
@@ -30,7 +30,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const checkAuth = async () => {
     try {
-      if (!tokenManager.hasToken()) {
+      if (!cookieManager.hasAuthToken()) {
         setUser(null);
         setIsLoading(false);
         return;
@@ -40,13 +40,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(userData);
     } catch (error) {
       setUser(null);
-      
-      // 認証エラーの場合はトークンを削除
+
+      // 認証エラーの場合はCookieを削除
       if (ApiError.isAuthError(error)) {
-        tokenManager.clearToken();
+        cookieManager.clearCookie("auth_token");
       } else if (!ApiError.isTemporaryError(error)) {
-        // 永続的なエラーの場合も安全のためトークンを削除
-        tokenManager.clearToken();
+        cookieManager.clearCookie("auth_token");
       }
     } finally {
       setIsLoading(false);
@@ -59,10 +58,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const data = await authApi.login({ username, password });
       setUser(data.user);
 
-      // Store token using tokenManager
-      if (data.token) {
-        tokenManager.setToken(data.token);
-      }
+      // Cookie is automatically set by the backend
     } catch (error) {
       setUser(null);
       throw error;
@@ -104,12 +100,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await authApi.logout();
       setUser(null);
 
-      // Clear token
-      tokenManager.clearToken();
+      // Clear cookie
+      cookieManager.clearCookie("auth_token");
     } catch {
       // バックエンドのログアウトが失敗してもローカル状態をクリア
       setUser(null);
-      tokenManager.clearToken();
+      cookieManager.clearCookie("auth_token");
     } finally {
       setIsLoading(false);
     }

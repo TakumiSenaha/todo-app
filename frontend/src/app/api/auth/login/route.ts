@@ -17,17 +17,11 @@ export async function POST(request: NextRequest) {
 
     const data = await response.json();
 
-    if (!response.ok) {
-      return NextResponse.json(data, { status: response.status });
-    }
+    // Create response
+    const nextResponse = NextResponse.json(data, { status: response.status });
 
-    // Extract cookie from backend response
+    // Forward cookie setting from backend
     const setCookieHeader = response.headers.get("set-cookie");
-
-    // Create response with user data
-    const nextResponse = NextResponse.json(data, { status: 200 });
-
-    // Forward the cookie from backend to client
     if (setCookieHeader) {
       nextResponse.headers.set("set-cookie", setCookieHeader);
     }
