@@ -4,178 +4,142 @@ export interface ValidationErrors {
   [key: string]: string;
 }
 
-export interface ValidationResult {
-  isValid: boolean;
-  errors: ValidationErrors;
-}
-
 // Username validation
-export function validateUsername(username: string): string | null {
-  if (!username.trim()) {
-    return "Username is required";
+export const validateUsername = (username: string): string | null => {
+  if (username === "") {
+    return "ユーザー名は必須です";
   }
-
   if (username.length < 3 || username.length > 20) {
-    return "Username must be between 3 and 20 characters";
+    return "ユーザー名は3-20文字で入力してください";
   }
-
-  if (!/^[a-zA-Z0-9_]+$/.test(username)) {
-    return "Username can only contain letters, numbers, and underscores";
+  const usernameRegex = /^[a-zA-Z0-9_]+$/;
+  if (!usernameRegex.test(username)) {
+    return "ユーザー名は英数字とアンダースコアのみ使用できます";
   }
-
   return null;
-}
+};
 
 // Email validation
-export function validateEmail(email: string): string | null {
-  if (!email.trim()) {
-    return "Email is required";
+export const validateEmail = (email: string): string | null => {
+  if (email === "") {
+    return "メールアドレスは必須です";
   }
-
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    return "Please enter a valid email address";
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    return "有効なメールアドレスを入力してください";
   }
-
   return null;
-}
+};
 
 // Password validation
-export function validatePassword(password: string): string | null {
-  if (!password) {
-    return "Password is required";
+export const validatePassword = (password: string): string | null => {
+  if (password === "") {
+    return "パスワードは必須です";
   }
-
   if (password.length < 8) {
-    return "Password must be at least 8 characters";
+    return "パスワードは8文字以上で入力してください";
   }
-
-  if (!/(?=.*[a-zA-Z])(?=.*\d)/.test(password)) {
-    return "Password must contain both letters and numbers";
+  const hasLetter = /[a-zA-Z]/.test(password);
+  const hasNumber = /[0-9]/.test(password);
+  if (!hasLetter || !hasNumber) {
+    return "パスワードは英数字の両方を含む必要があります";
   }
-
   return null;
-}
+};
 
 // Confirm password validation
-export function validateConfirmPassword(
+export const validateConfirmPassword = (
   password: string,
   confirmPassword: string,
-): string | null {
+): string | null => {
+  if (confirmPassword === "") {
+    return "パスワード確認は必須です";
+  }
   if (password !== confirmPassword) {
-    return "Passwords do not match";
+    return "パスワードが一致しません";
+  }
+  return null;
+};
+
+// Registration form validation
+export const validateRegistrationForm = (data: {
+  username: string;
+  email: string;
+  password: string;
+  confirmPassword: string;
+}): ValidationErrors => {
+  const errors: ValidationErrors = {};
+
+  const usernameError = validateUsername(data.username);
+  if (usernameError) errors.username = usernameError;
+
+  const emailError = validateEmail(data.email);
+  if (emailError) errors.email = emailError;
+
+  const passwordError = validatePassword(data.password);
+  if (passwordError) errors.password = passwordError;
+
+  const confirmPasswordError = validateConfirmPassword(
+    data.password,
+    data.confirmPassword,
+  );
+  if (confirmPasswordError) errors.confirmPassword = confirmPasswordError;
+
+  return errors;
+};
+
+// Login form validation
+export const validateLoginForm = (data: {
+  username: string;
+  password: string;
+}): ValidationErrors => {
+  const errors: ValidationErrors = {};
+
+  if (data.username === "") {
+    errors.username = "ユーザー名は必須です";
   }
 
-  return null;
-}
+  if (data.password === "") {
+    errors.password = "パスワードは必須です";
+  }
+
+  return errors;
+};
 
 // Profile update validation
-export function validateProfileUpdate(data: {
+export const validateProfileUpdate = (data: {
   username: string;
   email: string;
   current_password: string;
   new_password: string;
   confirm_password: string;
-}): ValidationResult {
+}): { isValid: boolean; errors: ValidationErrors } => {
   const errors: ValidationErrors = {};
 
-  // Username validation
   const usernameError = validateUsername(data.username);
-  if (usernameError) {
-    errors.username = usernameError;
-  }
+  if (usernameError) errors.username = usernameError;
 
-  // Email validation
   const emailError = validateEmail(data.email);
-  if (emailError) {
-    errors.email = emailError;
-  }
+  if (emailError) errors.email = emailError;
 
-  // Password validation (only if new password is provided)
+  // Only validate new password if it's provided
   if (data.new_password) {
-    if (!data.current_password) {
-      errors.current_password =
-        "Current password is required to change password";
+    if (data.current_password === "") {
+      errors.current_password = "現在のパスワードを入力してください";
     }
 
     const newPasswordError = validatePassword(data.new_password);
-    if (newPasswordError) {
-      errors.new_password = newPasswordError;
-    }
+    if (newPasswordError) errors.new_password = newPasswordError;
 
     const confirmPasswordError = validateConfirmPassword(
       data.new_password,
       data.confirm_password,
     );
-    if (confirmPasswordError) {
-      errors.confirm_password = confirmPasswordError;
-    }
+    if (confirmPasswordError) errors.confirm_password = confirmPasswordError;
   }
 
   return {
     isValid: Object.keys(errors).length === 0,
     errors,
   };
-}
-
-// Login validation
-export function validateLogin(data: {
-  username: string;
-  password: string;
-}): ValidationResult {
-  const errors: ValidationErrors = {};
-
-  if (!data.username.trim()) {
-    errors.username = "Username is required";
-  }
-
-  if (!data.password) {
-    errors.password = "Password is required";
-  }
-
-  return {
-    isValid: Object.keys(errors).length === 0,
-    errors,
-  };
-}
-
-// Registration validation
-export function validateRegistration(data: {
-  username: string;
-  email: string;
-  password: string;
-  confirm_password: string;
-}): ValidationResult {
-  const errors: ValidationErrors = {};
-
-  // Username validation
-  const usernameError = validateUsername(data.username);
-  if (usernameError) {
-    errors.username = usernameError;
-  }
-
-  // Email validation
-  const emailError = validateEmail(data.email);
-  if (emailError) {
-    errors.email = emailError;
-  }
-
-  // Password validation
-  const passwordError = validatePassword(data.password);
-  if (passwordError) {
-    errors.password = passwordError;
-  }
-
-  // Confirm password validation
-  const confirmPasswordError = validateConfirmPassword(
-    data.password,
-    data.confirm_password,
-  );
-  if (confirmPasswordError) {
-    errors.confirm_password = confirmPasswordError;
-  }
-
-  return {
-    isValid: Object.keys(errors).length === 0,
-    errors,
-  };
-}
+};

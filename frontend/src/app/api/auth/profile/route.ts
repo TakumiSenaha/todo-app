@@ -15,7 +15,18 @@ export async function PUT(request: NextRequest) {
       body: JSON.stringify(body),
     });
 
-    const data = await response.json();
+    let data;
+    try {
+      data = await response.json();
+    } catch (jsonError) {
+      console.error("Failed to parse JSON response:", jsonError);
+      const textResponse = await response.text();
+      console.error("Raw response:", textResponse);
+      return NextResponse.json(
+        { error: "Invalid server response", details: textResponse },
+        { status: response.status },
+      );
+    }
 
     if (!response.ok) {
       return NextResponse.json(
@@ -38,7 +49,10 @@ export async function PUT(request: NextRequest) {
 
     console.error("Profile update error:", error);
     return NextResponse.json(
-      { error: "Internal server error" },
+      {
+        error: "Internal server error",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
       { status: 500 },
     );
   }

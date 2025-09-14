@@ -69,6 +69,12 @@ export interface RegisterResponse {
   message: string;
 }
 
+// API Error response type
+export interface ApiErrorResponse {
+  message: string;
+  errors?: Record<string, string>;
+}
+
 // API Error class with enhanced error handling
 export class ApiError extends Error {
   constructor(
@@ -77,6 +83,7 @@ export class ApiError extends Error {
     public code?: string,
     public isNetworkError: boolean = false,
     public isAuthError: boolean = false,
+    public fieldErrors?: Record<string, string>,
   ) {
     super(message);
     this.name = "ApiError";
@@ -101,6 +108,18 @@ export class ApiError extends Error {
       ); // Request Timeout
     }
     return false;
+  }
+
+  // フィールドエラーの取得
+  getFieldError(field: string): string | undefined {
+    return this.fieldErrors?.[field];
+  }
+
+  // フィールドエラーがあるかチェック
+  hasFieldErrors(): boolean {
+    return (
+      this.fieldErrors !== undefined && Object.keys(this.fieldErrors).length > 0
+    );
   }
 }
 
@@ -164,11 +183,15 @@ async function apiRequest<T>(
 
     if (!response.ok) {
       const isNetworkError = response.status >= 500 || response.status === 0;
+      const errorResponse = data as ApiErrorResponse;
       const error = new ApiError(
-        data.message || `HTTP ${response.status}: ${response.statusText}`,
+        errorResponse.message ||
+          `HTTP ${response.status}: ${response.statusText}`,
         response.status,
         data.code,
         isNetworkError,
+        false,
+        errorResponse.errors,
       );
 
       // 401エラーの場合、Cookieが無効なので削除

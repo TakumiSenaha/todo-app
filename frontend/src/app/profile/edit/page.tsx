@@ -10,8 +10,14 @@ import { validateProfileUpdate, ValidationErrors } from "@/utils/validation";
 export default function ProfileEditPage() {
   const { user, isLoading } = useAuth();
   const router = useRouter();
-  const { updateProfile, isUpdating, error, success, clearMessages } =
-    useProfile();
+  const {
+    updateProfile,
+    isUpdating,
+    error,
+    fieldErrors,
+    success,
+    clearMessages,
+  } = useProfile();
 
   const [formData, setFormData] = useState({
     username: "",
@@ -46,6 +52,9 @@ export default function ProfileEditPage() {
     setErrors(validation.errors);
     return validation.isValid;
   };
+
+  // Combine client-side validation errors with server-side field errors
+  const allErrors = { ...errors, ...fieldErrors };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -145,12 +154,14 @@ export default function ProfileEditPage() {
                   value={formData.username}
                   onChange={handleInputChange}
                   className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 ${
-                    errors.username ? "border-red-300" : "border-gray-300"
+                    allErrors.username ? "border-red-300" : "border-gray-300"
                   }`}
                   placeholder="Enter your username"
                 />
-                {errors.username && (
-                  <p className="mt-1 text-sm text-red-600">{errors.username}</p>
+                {allErrors.username && (
+                  <p className="mt-1 text-sm text-red-600">
+                    {allErrors.username}
+                  </p>
                 )}
               </div>
 
@@ -169,12 +180,12 @@ export default function ProfileEditPage() {
                   value={formData.email}
                   onChange={handleInputChange}
                   className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 ${
-                    errors.email ? "border-red-300" : "border-gray-300"
+                    allErrors.email ? "border-red-300" : "border-gray-300"
                   }`}
                   placeholder="Enter your email address"
                 />
-                {errors.email && (
-                  <p className="mt-1 text-sm text-red-600">{errors.email}</p>
+                {allErrors.email && (
+                  <p className="mt-1 text-sm text-red-600">{allErrors.email}</p>
                 )}
               </div>
 
@@ -193,15 +204,15 @@ export default function ProfileEditPage() {
                   value={formData.current_password}
                   onChange={handleInputChange}
                   className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 ${
-                    errors.current_password
+                    allErrors.current_password
                       ? "border-red-300"
                       : "border-gray-300"
                   }`}
                   placeholder="Enter your current password"
                 />
-                {errors.current_password && (
+                {allErrors.current_password && (
                   <p className="mt-1 text-sm text-red-600">
-                    {errors.current_password}
+                    {allErrors.current_password}
                   </p>
                 )}
                 <p className="mt-1 text-sm text-gray-500">
@@ -224,13 +235,15 @@ export default function ProfileEditPage() {
                   value={formData.new_password}
                   onChange={handleInputChange}
                   className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 ${
-                    errors.new_password ? "border-red-300" : "border-gray-300"
+                    allErrors.new_password
+                      ? "border-red-300"
+                      : "border-gray-300"
                   }`}
                   placeholder="Enter your new password"
                 />
-                {errors.new_password && (
+                {allErrors.new_password && (
                   <p className="mt-1 text-sm text-red-600">
-                    {errors.new_password}
+                    {allErrors.new_password}
                   </p>
                 )}
               </div>
@@ -250,15 +263,15 @@ export default function ProfileEditPage() {
                   value={formData.confirm_password}
                   onChange={handleInputChange}
                   className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 ${
-                    errors.confirm_password
+                    allErrors.confirm_password
                       ? "border-red-300"
                       : "border-gray-300"
                   }`}
                   placeholder="Confirm your new password"
                 />
-                {errors.confirm_password && (
+                {allErrors.confirm_password && (
                   <p className="mt-1 text-sm text-red-600">
-                    {errors.confirm_password}
+                    {allErrors.confirm_password}
                   </p>
                 )}
               </div>

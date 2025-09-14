@@ -15,13 +15,27 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify(body),
     });
 
-    const data = await response.json();
+    let data;
+    try {
+      data = await response.json();
+    } catch (jsonError) {
+      console.error("Failed to parse JSON response:", jsonError);
+      const textResponse = await response.text();
+      console.error("Raw response:", textResponse);
+      return NextResponse.json(
+        { error: "Invalid server response", details: textResponse },
+        { status: response.status },
+      );
+    }
 
     return NextResponse.json(data, { status: response.status });
   } catch (error) {
     console.error("Register API error:", error);
     return NextResponse.json(
-      { error: "Internal server error" },
+      {
+        error: "Internal server error",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
       { status: 500 },
     );
   }
