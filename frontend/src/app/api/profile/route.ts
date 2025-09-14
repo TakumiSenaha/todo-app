@@ -97,18 +97,15 @@ export async function PUT(request: NextRequest) {
     }
 
     // Forward request to backend
-    const backendResponse = await fetch(
-      `${BACKEND_URL}/api/v1/profile`,
-      {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Cookie: request.headers.get("cookie") || "",
-        },
-        body: JSON.stringify(body),
-        credentials: "include",
+    const backendResponse = await fetch(`${BACKEND_URL}/api/v1/profile`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Cookie: request.headers.get("cookie") || "",
       },
-    );
+      body: JSON.stringify(body),
+      credentials: "include",
+    });
 
     const backendData = await backendResponse.json();
 
