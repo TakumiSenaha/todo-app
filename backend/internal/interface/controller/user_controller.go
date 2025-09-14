@@ -3,15 +3,16 @@ package controller
 import (
 	"encoding/json"
 	"net/http"
+	"todo-app/internal/domain"
 	"todo-app/internal/interface/middleware"
 	"todo-app/internal/usecase"
 )
 
 type UserController struct {
-	UserInteractor *usecase.UserInteractor
+	UserInteractor usecase.UserUseCase
 }
 
-func NewUserController(userInteractor *usecase.UserInteractor) *UserController {
+func NewUserController(userInteractor usecase.UserUseCase) *UserController {
 	return &UserController{
 		UserInteractor: userInteractor,
 	}
@@ -87,31 +88,22 @@ func (uc *UserController) Register(w http.ResponseWriter, r *http.Request) {
 
 	var req RegisterUserRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		uc.writeErrorResponse(w, "Invalid JSON format", nil, http.StatusBadRequest)
+		uc.handleErrorResponse(w, domain.ErrInvalidJSON)
 		return
 	}
 
 	// Validate request
 	errors := uc.validateRegisterRequest(req)
 	if len(errors) > 0 {
-		uc.writeErrorResponse(w, "Validation failed", errors, http.StatusBadRequest)
+		validationErr := domain.NewValidationError(errors)
+		uc.handleErrorResponse(w, validationErr)
 		return
 	}
 
 	user, err := uc.UserInteractor.Register(r.Context(), req.Username, req.Email, req.Password)
 	if err != nil {
-		// Handle specific error cases
-		switch err.Error() {
-		case "username already exists":
-			uc.writeErrorResponse(w, "このユーザー名は既に使用されています", map[string]string{"username": "このユーザー名は既に使用されています"}, http.StatusConflict)
-			return
-		case "email already exists":
-			uc.writeErrorResponse(w, "このメールアドレスは既に登録されています", map[string]string{"email": "このメールアドレスは既に登録されています"}, http.StatusConflict)
-			return
-		default:
-			uc.writeErrorResponse(w, err.Error(), nil, http.StatusBadRequest)
-			return
-		}
+		uc.handleErrorResponse(w, err)
+		return
 	}
 
 	response := RegisterUserResponse{
@@ -136,28 +128,29 @@ func (uc *UserController) Login(w http.ResponseWriter, r *http.Request) {
 
 	var req LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		uc.writeErrorResponse(w, "Invalid JSON format", nil, http.StatusBadRequest)
+		uc.handleErrorResponse(w, domain.ErrInvalidJSON)
 		return
 	}
 
 	// Validate request
 	errors := uc.validateLoginRequest(req)
 	if len(errors) > 0 {
-		uc.writeErrorResponse(w, "Validation failed", errors, http.StatusBadRequest)
+		validationErr := domain.NewValidationError(errors)
+		uc.handleErrorResponse(w, validationErr)
 		return
 	}
 
 	// Authenticate user
 	token, err := uc.UserInteractor.Login(r.Context(), req.Username, req.Password)
 	if err != nil {
-		uc.writeErrorResponse(w, "ユーザー名またはパスワードが正しくありません", map[string]string{"credentials": "ユーザー名またはパスワードが正しくありません"}, http.StatusUnauthorized)
+		uc.handleErrorResponse(w, err)
 		return
 	}
 
 	// Get user information
 	user, err := uc.UserInteractor.GetUserByUsername(r.Context(), req.Username)
 	if err != nil {
-		uc.writeErrorResponse(w, "ユーザー情報の取得に失敗しました", nil, http.StatusNotFound)
+		uc.handleErrorResponse(w, err)
 		return
 	}
 
@@ -488,6 +481,28 @@ func (uc *UserController) validateLoginRequest(req LoginRequest) map[string]stri
 	}
 
 	return errors
+}
+
+// handleErrorResponse handles domain errors appropriately
+func (uc *UserController) handleErrorResponse(w http.ResponseWriter, err error) {
+	if appErr, ok := domain.IsAppError(err); ok {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(appErr.HTTPCode)
+
+		if encodeErr := json.NewEncoder(w).Encode(appErr); encodeErr != nil {
+			http.Error(w, "Failed to encode error response", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	// Fallback for non-AppError types
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusInternalServerError)
+
+	fallbackErr := domain.NewAppError("INTERNAL_ERROR", "内部エラーが発生しました", http.StatusInternalServerError)
+	if encodeErr := json.NewEncoder(w).Encode(fallbackErr); encodeErr != nil {
+		http.Error(w, "Failed to encode error response", http.StatusInternalServerError)
+	}
 }
 
 func (uc *UserController) writeErrorResponse(w http.ResponseWriter, message string, errors map[string]string, statusCode int) {

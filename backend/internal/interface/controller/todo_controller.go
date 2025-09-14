@@ -62,18 +62,19 @@ func extractIDFromPath(path string) string {
 func (tc *TodoController) CreateTodo(w http.ResponseWriter, r *http.Request) {
 	userID, ok := r.Context().Value(middleware.UserIDKey).(int)
 	if !ok {
-		tc.writeErrorResponse(w, "Unauthorized", http.StatusUnauthorized)
+		tc.handleErrorResponse(w, domain.ErrUnauthorized)
 		return
 	}
 
 	var req CreateTodoRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		tc.writeErrorResponse(w, "Invalid request body", http.StatusBadRequest)
+		tc.handleErrorResponse(w, domain.ErrInvalidJSON)
 		return
 	}
 
 	if err := tc.validate.Struct(req); err != nil {
-		tc.writeErrorResponse(w, "Validation failed: "+err.Error(), http.StatusBadRequest)
+		validationErr := domain.NewAppError("VALIDATION_FAILED", "バリデーションエラーです: "+err.Error(), http.StatusBadRequest)
+		tc.handleErrorResponse(w, validationErr)
 		return
 	}
 
@@ -86,14 +87,15 @@ func (tc *TodoController) CreateTodo(w http.ResponseWriter, r *http.Request) {
 	if req.DueDate != "" {
 		dueDate, err := time.Parse("2006-01-02", req.DueDate)
 		if err != nil {
-			tc.writeErrorResponse(w, "Invalid due_date format. Use YYYY-MM-DD", http.StatusBadRequest)
+			dateErr := domain.NewAppError("INVALID_DATE_FORMAT", "日付の形式が正しくありません。YYYY-MM-DD形式で入力してください", http.StatusBadRequest)
+			tc.handleErrorResponse(w, dateErr)
 			return
 		}
 		todo.DueDate = &dueDate
 	}
 
 	if err := tc.todoUseCase.CreateTodo(r.Context(), userID, todo); err != nil {
-		tc.writeErrorResponse(w, "Failed to create todo", http.StatusInternalServerError)
+		tc.handleErrorResponse(w, err)
 		return
 	}
 
@@ -298,6 +300,28 @@ func (tc *TodoController) writeErrorResponse(w http.ResponseWriter, message stri
 	if err := json.NewEncoder(w).Encode(ErrorResponse{
 		Message: message,
 	}); err != nil {
+		http.Error(w, "Failed to encode error response", http.StatusInternalServerError)
+	}
+}
+
+// handleErrorResponse handles domain errors appropriately
+func (tc *TodoController) handleErrorResponse(w http.ResponseWriter, err error) {
+	if appErr, ok := domain.IsAppError(err); ok {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(appErr.HTTPCode)
+
+		if encodeErr := json.NewEncoder(w).Encode(appErr); encodeErr != nil {
+			http.Error(w, "Failed to encode error response", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	// Fallback for non-AppError types
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusInternalServerError)
+
+	fallbackErr := domain.NewAppError("INTERNAL_ERROR", "内部エラーが発生しました", http.StatusInternalServerError)
+	if encodeErr := json.NewEncoder(w).Encode(fallbackErr); encodeErr != nil {
 		http.Error(w, "Failed to encode error response", http.StatusInternalServerError)
 	}
 }
