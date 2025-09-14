@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { authenticatedFetch } from "@/lib/auth";
+
+const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:8080";
 
 interface UpdateProfileRequest {
   username?: string;
@@ -96,10 +97,18 @@ export async function PUT(request: NextRequest) {
     }
 
     // Forward request to backend
-    const backendResponse = await authenticatedFetch("/api/v1/profile", {
-      method: "PUT",
-      body,
-    });
+    const backendResponse = await fetch(
+      `${BACKEND_URL}/api/v1/profile`,
+      {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Cookie: request.headers.get("cookie") || "",
+        },
+        body: JSON.stringify(body),
+        credentials: "include",
+      },
+    );
 
     const backendData = await backendResponse.json();
 
