@@ -2,129 +2,36 @@
 
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect } from "react";
 import Header from "@/components/Header";
 import TodoForm from "@/components/TodoForm";
 import TodoCard from "@/components/TodoCard";
 import TodoSort from "@/components/TodoSort";
-import {
-  api,
-  Todo,
-  CreateTodoRequest,
-  UpdateTodoRequest,
-  ApiError,
-} from "@/services/api";
+import { useTodos } from "@/hooks/useTodos";
+import { calculateCompletionRate } from "@/utils/todo";
 
 export default function DashboardPage() {
   const { user, isLoading } = useAuth();
   const router = useRouter();
-  const [todos, setTodos] = useState<Todo[]>([]);
-  const [loadingTodos, setLoadingTodos] = useState(true);
-  const [currentSort, setCurrentSort] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const {
+    todos,
+    isLoading: loadingTodos,
+    error,
+    isSubmitting,
+    currentSort,
+    createTodo,
+    updateTodo,
+    deleteTodo,
+    toggleComplete,
+    setSort,
+    clearError,
+  } = useTodos();
 
   useEffect(() => {
     if (!isLoading && !user) {
       router.push("/login");
     }
   }, [user, isLoading, router]);
-
-  const loadTodos = useCallback(async () => {
-    setLoadingTodos(true);
-    setError(null);
-    try {
-      const todosData = await api.todo.getTodos(currentSort);
-      setTodos(todosData);
-    } catch (error) {
-      console.error("Failed to load todos:", error);
-      if (error instanceof ApiError) {
-        setError(error.message);
-      } else {
-        setError("Failed to load todos");
-      }
-    } finally {
-      setLoadingTodos(false);
-    }
-  }, [currentSort]);
-
-  useEffect(() => {
-    if (user) {
-      loadTodos();
-    }
-  }, [user, loadTodos]);
-
-  const handleCreateTodo = async (todoData: CreateTodoRequest) => {
-    setIsSubmitting(true);
-    setError(null);
-    try {
-      const newTodo = await api.todo.createTodo(todoData);
-      setTodos((prev) => [newTodo, ...prev]);
-    } catch (error) {
-      console.error("Failed to create todo:", error);
-      if (error instanceof ApiError) {
-        setError(error.message);
-      } else {
-        setError("Failed to create todo");
-      }
-      throw error;
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleToggleComplete = async (id: number) => {
-    try {
-      const updatedTodo = await api.todo.toggleTodoComplete(id);
-      setTodos((prev) =>
-        prev.map((todo) => (todo.id === id ? updatedTodo : todo)),
-      );
-    } catch (error) {
-      console.error("Failed to toggle todo:", error);
-      if (error instanceof ApiError) {
-        setError(error.message);
-      } else {
-        setError("Failed to update todo");
-      }
-    }
-  };
-
-  const handleUpdateTodo = async (
-    id: number,
-    updateData: UpdateTodoRequest,
-  ) => {
-    try {
-      const updatedTodo = await api.todo.updateTodo(id, updateData);
-      setTodos((prev) =>
-        prev.map((todo) => (todo.id === id ? updatedTodo : todo)),
-      );
-    } catch (error) {
-      console.error("Failed to update todo:", error);
-      if (error instanceof ApiError) {
-        setError(error.message);
-      } else {
-        setError("Failed to update todo");
-      }
-    }
-  };
-
-  const handleDeleteTodo = async (id: number) => {
-    try {
-      await api.todo.deleteTodo(id);
-      setTodos((prev) => prev.filter((todo) => todo.id !== id));
-    } catch (error) {
-      console.error("Failed to delete todo:", error);
-      if (error instanceof ApiError) {
-        setError(error.message);
-      } else {
-        setError("Failed to delete todo");
-      }
-    }
-  };
-
-  const handleSortChange = (sortBy: string) => {
-    setCurrentSort(sortBy);
-  };
 
   if (isLoading) {
     return (
@@ -141,8 +48,11 @@ export default function DashboardPage() {
     return null; // Will redirect to login
   }
 
-  const completedCount = todos.filter((todo) => todo.is_completed).length;
-  const totalCount = todos.length;
+  const {
+    total: totalCount,
+    completed: completedCount,
+    percentage: completionPercentage,
+  } = calculateCompletionRate(todos);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -167,12 +77,7 @@ export default function DashboardPage() {
               <div className="w-64 bg-gray-200 rounded-full h-2">
                 <div
                   className="bg-green-500 h-2 rounded-full transition-all duration-300"
-                  style={{
-                    width:
-                      totalCount > 0
-                        ? `${(completedCount / totalCount) * 100}%`
-                        : "0%",
-                  }}
+                  style={{ width: `${completionPercentage}%` }}
                 ></div>
               </div>
             </div>
@@ -184,7 +89,7 @@ export default function DashboardPage() {
           <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center justify-between">
             <span>{error}</span>
             <button
-              onClick={() => setError(null)}
+              onClick={clearError}
               className="text-red-500 hover:text-red-700"
             >
               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
@@ -199,10 +104,10 @@ export default function DashboardPage() {
         )}
 
         {/* Todo Creation Form */}
-        <TodoForm onSubmit={handleCreateTodo} isSubmitting={isSubmitting} />
+        <TodoForm onSubmit={createTodo} isSubmitting={isSubmitting} />
 
         {/* Sort Controls */}
-        <TodoSort currentSort={currentSort} onSortChange={handleSortChange} />
+        <TodoSort currentSort={currentSort} onSortChange={setSort} />
 
         {/* Todo List */}
         <div className="space-y-4">
@@ -238,9 +143,9 @@ export default function DashboardPage() {
               <TodoCard
                 key={todo.id}
                 todo={todo}
-                onToggleComplete={handleToggleComplete}
-                onUpdate={handleUpdateTodo}
-                onDelete={handleDeleteTodo}
+                onToggleComplete={toggleComplete}
+                onUpdate={updateTodo}
+                onDelete={deleteTodo}
               />
             ))
           )}

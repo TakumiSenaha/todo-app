@@ -1,7 +1,12 @@
+// リファクタリング済みTodoCardコンポーネント
+
 "use client";
 
 import { useState } from "react";
 import { Todo, UpdateTodoRequest } from "@/services/api";
+import { getTodoBorderColor } from "@/utils/todo";
+import TodoDisplay from "./TodoDisplay";
+import TodoEditForm from "./TodoEditForm";
 
 interface TodoCardProps {
   todo: Todo;
@@ -17,51 +22,7 @@ export default function TodoCard({
   onDelete,
 }: TodoCardProps) {
   const [isEditing, setIsEditing] = useState(false);
-  const [editData, setEditData] = useState({
-    title: todo.title,
-    due_date: todo.due_date || "",
-    priority: todo.priority,
-  });
   const [isLoading, setIsLoading] = useState(false);
-
-  const getPriorityLabel = (priority: number): string => {
-    switch (priority) {
-      case 0:
-        return "Low";
-      case 1:
-        return "Medium";
-      case 2:
-        return "High";
-      default:
-        return "Low";
-    }
-  };
-
-  const getPriorityColor = (priority: number): string => {
-    switch (priority) {
-      case 0:
-        return "bg-gray-100 text-gray-800";
-      case 1:
-        return "bg-yellow-100 text-yellow-800";
-      case 2:
-        return "bg-red-100 text-red-800";
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
-  };
-
-  const formatDate = (dateString: string): string => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString();
-  };
-
-  const isOverdue = (dueDateString?: string): boolean => {
-    if (!dueDateString) return false;
-    const dueDate = new Date(dueDateString);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    return dueDate < today && !todo.is_completed;
-  };
 
   const handleToggleComplete = async () => {
     setIsLoading(true);
@@ -72,18 +33,9 @@ export default function TodoCard({
     }
   };
 
-  const handleSave = async () => {
+  const handleSave = async (updateData: UpdateTodoRequest) => {
     setIsLoading(true);
     try {
-      const updateData: UpdateTodoRequest = {
-        title: editData.title.trim(),
-        priority: editData.priority,
-      };
-
-      if (editData.due_date) {
-        updateData.due_date = editData.due_date;
-      }
-
       await onUpdate(todo.id, updateData);
       setIsEditing(false);
     } finally {
@@ -91,17 +43,8 @@ export default function TodoCard({
     }
   };
 
-  const handleCancel = () => {
-    setEditData({
-      title: todo.title,
-      due_date: todo.due_date || "",
-      priority: todo.priority,
-    });
-    setIsEditing(false);
-  };
-
   const handleDelete = async () => {
-    if (window.confirm("Are you sure you want to delete this todo?")) {
+    if (window.confirm("この Todo を削除してもよろしいですか？")) {
       setIsLoading(true);
       try {
         await onDelete(todo.id);
@@ -114,16 +57,12 @@ export default function TodoCard({
   return (
     <div
       className={`bg-white rounded-lg shadow-md p-4 border-l-4 ${
-        todo.is_completed
-          ? "border-green-400 opacity-75"
-          : isOverdue(todo.due_date)
-            ? "border-red-400"
-            : "border-blue-400"
-      }`}
+        todo.is_completed ? "opacity-75" : ""
+      } ${getTodoBorderColor(todo)}`}
     >
       <div className="flex items-start justify-between">
         <div className="flex items-start space-x-3 flex-1">
-          {/* Completion Checkbox */}
+          {/* 完了チェックボックス */}
           <button
             onClick={handleToggleComplete}
             disabled={isLoading}
@@ -144,151 +83,30 @@ export default function TodoCard({
             )}
           </button>
 
-          {/* Todo Content */}
+          {/* Todo コンテンツ */}
           <div className="flex-1">
             {isEditing ? (
-              <div className="space-y-3">
-                <input
-                  type="text"
-                  value={editData.title}
-                  onChange={(e) =>
-                    setEditData({ ...editData, title: e.target.value })
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Todo title..."
-                />
-
-                <input
-                  type="date"
-                  value={editData.due_date}
-                  onChange={(e) =>
-                    setEditData({ ...editData, due_date: e.target.value })
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-
-                <select
-                  value={editData.priority}
-                  onChange={(e) =>
-                    setEditData({
-                      ...editData,
-                      priority: parseInt(e.target.value),
-                    })
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value={0}>Low</option>
-                  <option value={1}>Medium</option>
-                  <option value={2}>High</option>
-                </select>
-              </div>
+              <TodoEditForm
+                todo={todo}
+                onSave={handleSave}
+                onCancel={() => setIsEditing(false)}
+                isLoading={isLoading}
+              />
             ) : (
-              <div>
-                <h3
-                  className={`text-lg font-medium ${
-                    todo.is_completed
-                      ? "text-gray-500 line-through"
-                      : "text-gray-900"
-                  }`}
-                >
-                  {todo.title}
-                </h3>
-
-                <div className="mt-2 flex flex-wrap items-center gap-3 text-sm">
-                  {/* Priority Badge */}
-                  <span
-                    className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(todo.priority)}`}
-                  >
-                    {getPriorityLabel(todo.priority)}
-                  </span>
-
-                  {/* Due Date */}
-                  {todo.due_date && (
-                    <span
-                      className={`flex items-center ${
-                        isOverdue(todo.due_date)
-                          ? "text-red-600 font-medium"
-                          : "text-gray-600"
-                      }`}
-                    >
-                      <svg
-                        className="w-4 h-4 mr-1"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                        />
-                      </svg>
-                      Due: {formatDate(todo.due_date)}
-                      {isOverdue(todo.due_date) && " (Overdue)"}
-                    </span>
-                  )}
-
-                  {/* Created Date */}
-                  <span className="text-gray-500">
-                    Created: {formatDate(todo.created_at)}
-                  </span>
-                </div>
-              </div>
+              <TodoDisplay todo={todo} />
             )}
           </div>
         </div>
 
-        {/* Action Buttons */}
+        {/* アクションボタン */}
         <div className="flex items-center space-x-2 ml-3">
-          {isEditing ? (
-            <>
-              <button
-                onClick={handleSave}
-                disabled={isLoading || !editData.title.trim()}
-                className="bg-green-500 hover:bg-green-600 disabled:bg-green-300 text-white p-2 rounded transition-colors"
-              >
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M5 13l4 4L19 7"
-                  />
-                </svg>
-              </button>
-              <button
-                onClick={handleCancel}
-                disabled={isLoading}
-                className="bg-gray-500 hover:bg-gray-600 text-white p-2 rounded transition-colors"
-              >
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
-              </button>
-            </>
-          ) : (
+          {!isEditing && (
             <>
               <button
                 onClick={() => setIsEditing(true)}
                 disabled={isLoading}
                 className="text-blue-500 hover:text-blue-700 p-2 rounded transition-colors"
-                title="Edit"
+                title="編集"
               >
                 <svg
                   className="w-4 h-4"
@@ -308,7 +126,7 @@ export default function TodoCard({
                 onClick={handleDelete}
                 disabled={isLoading}
                 className="text-red-500 hover:text-red-700 p-2 rounded transition-colors"
-                title="Delete"
+                title="削除"
               >
                 <svg
                   className="w-4 h-4"

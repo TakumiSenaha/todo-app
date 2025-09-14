@@ -17,10 +17,10 @@ const (
 )
 
 type AuthMiddleware struct {
-	UserInteractor *usecase.UserInteractor
+	UserInteractor usecase.UserUseCase
 }
 
-func NewAuthMiddleware(userInteractor *usecase.UserInteractor) *AuthMiddleware {
+func NewAuthMiddleware(userInteractor usecase.UserUseCase) *AuthMiddleware {
 	return &AuthMiddleware{
 		UserInteractor: userInteractor,
 	}

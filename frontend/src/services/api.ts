@@ -69,10 +69,11 @@ export interface RegisterResponse {
   message: string;
 }
 
-// API Error response type
+// API Error response type (updated to match backend AppError)
 export interface ApiErrorResponse {
+  code: string;
   message: string;
-  errors?: Record<string, string>;
+  details?: Record<string, string | number | boolean>;
 }
 
 // API Error class with enhanced error handling
@@ -108,6 +109,27 @@ export class ApiError extends Error {
       ); // Request Timeout
     }
     return false;
+  }
+
+  // 特定のエラーコードの判定メソッド
+  static isValidationError(error: unknown): boolean {
+    return error instanceof ApiError && error.code === "VALIDATION_FAILED";
+  }
+
+  static isUserNotFoundError(error: unknown): boolean {
+    return error instanceof ApiError && error.code === "USER_NOT_FOUND";
+  }
+
+  static isUsernameExistsError(error: unknown): boolean {
+    return error instanceof ApiError && error.code === "USERNAME_EXISTS";
+  }
+
+  static isEmailExistsError(error: unknown): boolean {
+    return error instanceof ApiError && error.code === "EMAIL_EXISTS";
+  }
+
+  static isInvalidCredentialsError(error: unknown): boolean {
+    return error instanceof ApiError && error.code === "INVALID_CREDENTIALS";
   }
 
   // フィールドエラーの取得
@@ -184,14 +206,25 @@ async function apiRequest<T>(
     if (!response.ok) {
       const isNetworkError = response.status >= 500 || response.status === 0;
       const errorResponse = data as ApiErrorResponse;
+
+      // Extract field errors from details for backward compatibility
+      const fieldErrors = errorResponse.details
+        ? Object.fromEntries(
+            Object.entries(errorResponse.details).map(([key, value]) => [
+              key,
+              typeof value === "string" ? value : String(value),
+            ]),
+          )
+        : undefined;
+
       const error = new ApiError(
         errorResponse.message ||
           `HTTP ${response.status}: ${response.statusText}`,
         response.status,
-        data.code,
+        errorResponse.code,
         isNetworkError,
         false,
-        errorResponse.errors,
+        fieldErrors,
       );
 
       // 401エラーの場合、Cookieが無効なので削除

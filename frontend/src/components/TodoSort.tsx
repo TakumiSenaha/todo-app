@@ -1,19 +1,21 @@
 "use client";
 
+import { memo } from "react";
+
 interface TodoSortProps {
   currentSort: string;
   onSortChange: (sortBy: string) => void;
 }
 
-export default function TodoSort({ currentSort, onSortChange }: TodoSortProps) {
-  const sortOptions = [
-    { value: "", label: "Default (Newest First)" },
-    { value: "due_date_asc", label: "Due Date (Ascending)" },
-    { value: "due_date_desc", label: "Due Date (Descending)" },
-    { value: "priority_desc", label: "Priority (High to Low)" },
-    { value: "created_desc", label: "Created Date (Newest)" },
-  ];
+const sortOptions = [
+  { value: "", label: "Default (Newest First)" },
+  { value: "due_date_asc", label: "Due Date (Ascending)" },
+  { value: "due_date_desc", label: "Due Date (Descending)" },
+  { value: "priority_desc", label: "Priority (High to Low)" },
+  { value: "created_desc", label: "Created Date (Newest)" },
+];
 
+function TodoSort({ currentSort, onSortChange }: TodoSortProps) {
   return (
     <div className="flex items-center space-x-4 mb-6">
       <label
@@ -61,3 +63,5 @@ export default function TodoSort({ currentSort, onSortChange }: TodoSortProps) {
     </div>
   );
 }
+
+export default memo(TodoSort);

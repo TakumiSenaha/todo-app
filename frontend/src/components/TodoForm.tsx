@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, memo, useCallback } from "react";
 import { CreateTodoRequest } from "@/services/api";
+import { getPriorityLabel, getPriorityColor } from "@/utils/todo";
+import { PRIORITY_OPTIONS } from "@/constants/todo";
 
 interface TodoFormProps {
   onSubmit: (todoData: CreateTodoRequest) => Promise<void>;
@@ -9,11 +11,7 @@ interface TodoFormProps {
   isSubmitting?: boolean;
 }
 
-export default function TodoForm({
-  onSubmit,
-  onCancel,
-  isSubmitting = false,
-}: TodoFormProps) {
+function TodoForm({ onSubmit, onCancel, isSubmitting = false }: TodoFormProps) {
   const [formData, setFormData] = useState<CreateTodoRequest>({
     title: "",
     due_date: "",
@@ -21,7 +19,7 @@ export default function TodoForm({
   });
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
-  const validateForm = (): boolean => {
+  const validateForm = useCallback((): boolean => {
     const newErrors: { [key: string]: string } = {};
 
     if (!formData.title.trim()) {
@@ -42,66 +40,43 @@ export default function TodoForm({
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  };
+  }, [formData.title, formData.due_date]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault();
 
-    if (!validateForm()) {
-      return;
-    }
+      if (!validateForm()) {
+        return;
+      }
 
-    const submitData: CreateTodoRequest = {
-      title: formData.title.trim(),
-      priority: formData.priority,
-    };
+      const submitData: CreateTodoRequest = {
+        title: formData.title.trim(),
+        priority: formData.priority,
+      };
 
-    if (formData.due_date) {
-      submitData.due_date = formData.due_date;
-    }
+      if (formData.due_date) {
+        submitData.due_date = formData.due_date;
+      }
 
-    try {
-      await onSubmit(submitData);
-      setFormData({ title: "", due_date: "", priority: 0 });
-      setErrors({});
-    } catch {
-      setErrors({ submit: "Failed to create todo. Please try again." });
-    }
-  };
+      try {
+        await onSubmit(submitData);
+        setFormData({ title: "", due_date: "", priority: 0 });
+        setErrors({});
+      } catch {
+        setErrors({ submit: "Failed to create todo. Please try again." });
+      }
+    },
+    [formData, onSubmit, validateForm],
+  );
 
-  const handleReset = () => {
+  const handleReset = useCallback(() => {
     setFormData({ title: "", due_date: "", priority: 0 });
     setErrors({});
     if (onCancel) {
       onCancel();
     }
-  };
-
-  const getPriorityLabel = (priority: number): string => {
-    switch (priority) {
-      case 0:
-        return "Low";
-      case 1:
-        return "Medium";
-      case 2:
-        return "High";
-      default:
-        return "Low";
-    }
-  };
-
-  const getPriorityColor = (priority: number): string => {
-    switch (priority) {
-      case 0:
-        return "text-gray-600";
-      case 1:
-        return "text-yellow-600";
-      case 2:
-        return "text-red-600";
-      default:
-        return "text-gray-600";
-    }
-  };
+  }, [onCancel]);
 
   return (
     <div className="bg-white rounded-lg shadow-md p-6 mb-6">
@@ -177,9 +152,11 @@ export default function TodoForm({
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             disabled={isSubmitting}
           >
-            <option value={0}>Low</option>
-            <option value={1}>Medium</option>
-            <option value={2}>High</option>
+            {PRIORITY_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
           </select>
           <p className={`text-sm mt-1 ${getPriorityColor(formData.priority)}`}>
             Priority: {getPriorityLabel(formData.priority)}
@@ -215,3 +192,5 @@ export default function TodoForm({
     </div>
   );
 }
+
+export default memo(TodoForm);
