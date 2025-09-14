@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { authenticatedFetch } from "@/lib/auth";
+
+const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:8080";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -9,21 +10,19 @@ interface RouteParams {
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
-    const response = await authenticatedFetch(`/api/v1/todos/${id}`);
+
+    const response = await fetch(`${BACKEND_URL}/api/v1/todos/${id}`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Cookie: request.headers.get("cookie") || "",
+      },
+    });
+
     const data = await response.json();
 
     return NextResponse.json(data, { status: response.status });
   } catch (error) {
-    if (
-      error instanceof Error &&
-      error.message === "No authentication token found"
-    ) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 },
-      );
-    }
-
     console.error("Get todo error:", error);
     return NextResponse.json(
       { error: "Internal server error" },
@@ -38,25 +37,19 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     const { id } = await params;
     const body = await request.json();
 
-    const response = await authenticatedFetch(`/api/v1/todos/${id}`, {
+    const response = await fetch(`${BACKEND_URL}/api/v1/todos/${id}`, {
       method: "PUT",
-      body,
+      headers: {
+        "Content-Type": "application/json",
+        Cookie: request.headers.get("cookie") || "",
+      },
+      body: JSON.stringify(body),
     });
 
     const data = await response.json();
 
     return NextResponse.json(data, { status: response.status });
   } catch (error) {
-    if (
-      error instanceof Error &&
-      error.message === "No authentication token found"
-    ) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 },
-      );
-    }
-
     console.error("Update todo error:", error);
     return NextResponse.json(
       { error: "Internal server error" },
@@ -70,8 +63,12 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
 
-    const response = await authenticatedFetch(`/api/v1/todos/${id}`, {
+    const response = await fetch(`${BACKEND_URL}/api/v1/todos/${id}`, {
       method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+        Cookie: request.headers.get("cookie") || "",
+      },
     });
 
     if (response.status === 204) {
@@ -81,16 +78,6 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     const data = await response.json();
     return NextResponse.json(data, { status: response.status });
   } catch (error) {
-    if (
-      error instanceof Error &&
-      error.message === "No authentication token found"
-    ) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 },
-      );
-    }
-
     console.error("Delete todo error:", error);
     return NextResponse.json(
       { error: "Internal server error" },

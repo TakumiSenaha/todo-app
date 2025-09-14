@@ -46,15 +46,27 @@ export async function authenticatedFetch(
     headers?: HeadersInit;
   } = {},
 ): Promise<Response> {
-  const authHeaders = await createAuthHeaders();
+  const token = await getAuthToken();
 
   const requestOptions: RequestInit = {
     method: options.method || "GET",
     headers: {
-      ...authHeaders,
+      "Content-Type": "application/json",
       ...options.headers,
     },
+    credentials: "include", // Include cookies in request
   };
+
+  // If we have a token, add it as both cookie and header for maximum compatibility
+  if (token) {
+    requestOptions.headers = {
+      ...requestOptions.headers,
+      Authorization: `Bearer ${token}`,
+      Cookie: `auth_token=${token}`,
+    };
+  } else {
+    throw new Error("No authentication token found");
+  }
 
   if (options.body) {
     requestOptions.body = JSON.stringify(options.body);

@@ -21,6 +21,31 @@ export interface UpdateProfileResponse {
   message: string;
 }
 
+// Todo types
+export interface Todo {
+  id: number;
+  user_id: number;
+  title: string;
+  due_date?: string;
+  priority: number;
+  is_completed: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateTodoRequest {
+  title: string;
+  due_date?: string;
+  priority: number;
+}
+
+export interface UpdateTodoRequest {
+  title?: string;
+  due_date?: string;
+  priority?: number;
+  is_completed?: boolean;
+}
+
 export interface LoginRequest {
   username: string;
   password: string;
@@ -83,9 +108,13 @@ export class ApiError extends Error {
 export const cookieManager = {
   getCookie(name: string): string | null {
     if (typeof document === "undefined") return null;
-    const value = `; ${document.cookie}`;
-    const parts = value.split(`; ${name}=`);
-    if (parts.length === 2) return parts.pop()?.split(";").shift() || null;
+    const cookies = document.cookie.split(";");
+    for (const cookie of cookies) {
+      const [cookieName, cookieValue] = cookie.trim().split("=");
+      if (cookieName === name) {
+        return cookieValue || null;
+      }
+    }
     return null;
   },
 
@@ -246,7 +275,135 @@ export const authApi = {
   },
 };
 
-// Export auth API
+// Todo API functions - using BFF routes with automatic cookie handling
+export const todoApi = {
+  // Create todo
+  async createTodo(todoData: CreateTodoRequest): Promise<Todo> {
+    const response = await fetch("/api/todos", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(todoData),
+      credentials: "include", // Include cookies
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new ApiError(
+        error.error || "Failed to create todo",
+        response.status,
+      );
+    }
+
+    return response.json();
+  },
+
+  // Get all todos with optional sorting
+  async getTodos(sortBy?: string): Promise<Todo[]> {
+    const query = sortBy ? `?sort=${sortBy}` : "";
+    const response = await fetch(`/api/todos${query}`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include", // Include cookies
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new ApiError(error.error || "Failed to get todos", response.status);
+    }
+
+    return response.json();
+  },
+
+  // Get single todo
+  async getTodo(id: number): Promise<Todo> {
+    const response = await fetch(`/api/todos/${id}`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include", // Include cookies
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new ApiError(error.error || "Failed to get todo", response.status);
+    }
+
+    return response.json();
+  },
+
+  // Update todo
+  async updateTodo(id: number, todoData: UpdateTodoRequest): Promise<Todo> {
+    const response = await fetch(`/api/todos/${id}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(todoData),
+      credentials: "include", // Include cookies
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new ApiError(
+        error.error || "Failed to update todo",
+        response.status,
+      );
+    }
+
+    return response.json();
+  },
+
+  // Delete todo
+  async deleteTodo(id: number): Promise<void> {
+    const response = await fetch(`/api/todos/${id}`, {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include", // Include cookies
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new ApiError(
+        error.error || "Failed to delete todo",
+        response.status,
+      );
+    }
+
+    // DELETE returns 204 No Content, so we don't need to parse JSON
+    return;
+  },
+
+  // Toggle todo completion
+  async toggleTodoComplete(id: number): Promise<Todo> {
+    const response = await fetch(`/api/todos/${id}/toggle`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include", // Include cookies
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new ApiError(
+        error.error || "Failed to toggle todo",
+        response.status,
+      );
+    }
+
+    return response.json();
+  },
+};
+
+// Export all APIs
 export const api = {
   auth: authApi,
+  todo: todoApi,
 };

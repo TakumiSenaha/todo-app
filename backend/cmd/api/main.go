@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"todo-app/internal/infrastructure/persistence"
 	"todo-app/internal/interface/controller"
 	"todo-app/internal/interface/middleware"
@@ -41,13 +42,17 @@ func main() {
 
 	// Dependency Injection
 	// Infrastructure layer
+	queries := persistence.New(db)
 	userRepo := persistence.NewUserPersistence(db)
+	todoRepo := persistence.NewTodoRepository(queries)
 
 	// Use case layer
 	userInteractor := usecase.NewUserInteractor(userRepo)
+	todoInteractor := usecase.NewTodoInteractor(todoRepo)
 
 	// Interface layer
 	userController := controller.NewUserController(userInteractor)
+	todoController := controller.NewTodoController(todoInteractor)
 	authMiddleware := middleware.NewAuthMiddleware(userInteractor)
 
 	// Setup routes
@@ -56,9 +61,10 @@ func main() {
 	// CORS middleware
 	corsHandler := func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Access-Control-Allow-Origin", "*")
-			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+			w.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, Cookie")
+			w.Header().Set("Access-Control-Allow-Credentials", "true")
 
 			if r.Method == "OPTIONS" {
 				w.WriteHeader(http.StatusOK)
@@ -86,6 +92,46 @@ func main() {
 	// Protected endpoints (authentication required)
 	mux.Handle("/api/v1/me", authMiddleware.RequireAuth(http.HandlerFunc(userController.Me)))
 	mux.Handle("/api/v1/profile", authMiddleware.RequireAuth(http.HandlerFunc(userController.UpdateProfile)))
+
+	// Todo endpoints (authentication required)
+	mux.Handle("/api/v1/todos", authMiddleware.RequireAuth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			todoController.GetTodos(w, r)
+		case http.MethodPost:
+			todoController.CreateTodo(w, r)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})))
+
+	// Handle all /api/v1/todos/* paths with custom routing
+	mux.Handle("/api/v1/todos/", authMiddleware.RequireAuth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path := r.URL.Path
+
+		// Handle toggle functionality: /api/v1/todos/{id}/toggle
+		if strings.Contains(path, "/toggle") && r.Method == http.MethodPatch {
+			todoController.ToggleTodoComplete(w, r)
+			return
+		}
+
+		// Handle individual todo operations: /api/v1/todos/{id}
+		if len(strings.Split(path, "/")) == 5 { // /api/v1/todos/{id}
+			switch r.Method {
+			case http.MethodGet:
+				todoController.GetTodo(w, r)
+			case http.MethodPut:
+				todoController.UpdateTodo(w, r)
+			case http.MethodDelete:
+				todoController.DeleteTodo(w, r)
+			default:
+				http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			}
+			return
+		}
+
+		http.Error(w, "Not found", http.StatusNotFound)
+	})))
 
 	// Apply CORS middleware
 	handler := corsHandler(mux)
