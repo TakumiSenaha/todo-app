@@ -70,6 +70,11 @@ func (ui *UserInteractor) Login(ctx context.Context, username, password string) 
 		return "", domain.ErrInvalidCredentials
 	}
 
+	// Check if user exists
+	if user == nil {
+		return "", domain.ErrInvalidCredentials
+	}
+
 	// Compare password
 	err = bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password))
 	if err != nil {
@@ -90,6 +95,12 @@ func (ui *UserInteractor) GetUserByID(ctx context.Context, userID int) (*domain.
 	if err != nil {
 		return nil, domain.ErrUserNotFound
 	}
+	
+	// Check if user exists
+	if user == nil {
+		return nil, domain.ErrUserNotFound
+	}
+	
 	return user, nil
 }
 
@@ -101,6 +112,11 @@ func (ui *UserInteractor) UpdateProfile(ctx context.Context, userID int, usernam
 	// Get current user
 	user, err := ui.UserRepository.GetUserByID(ctx, userID)
 	if err != nil {
+		return nil, domain.ErrUserNotFound
+	}
+	
+	// Check if user exists
+	if user == nil {
 		return nil, domain.ErrUserNotFound
 	}
 
